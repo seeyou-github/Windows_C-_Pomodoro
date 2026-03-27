@@ -155,6 +155,7 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM w_param, LPARAM l_param) 
     switch (message) {
     case WM_CREATE:
         overlay_.Create(hwnd_);
+        EnsureTrayIcon();
         return 0;
     case WM_SIZE:
         LayoutControls(LOWORD(l_param), HIWORD(l_param));
@@ -174,7 +175,6 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM w_param, LPARAM l_param) 
             RestoreFromTray();
             return 0;
         case kTrayMenuExitId:
-            RemoveTrayIcon();
             DestroyWindow(hwnd_);
             return 0;
         default:
@@ -577,13 +577,10 @@ void MainWindow::RemoveTrayIcon() {
 }
 
 void MainWindow::MinimizeToTray() {
-    EnsureTrayIcon();
-    overlay_.Hide();
     ShowWindow(hwnd_, SW_HIDE);
 }
 
 void MainWindow::RestoreFromTray() {
-    RemoveTrayIcon();
     ShowWindow(hwnd_, SW_SHOW);
     ShowWindow(hwnd_, SW_RESTORE);
     SetForegroundWindow(hwnd_);

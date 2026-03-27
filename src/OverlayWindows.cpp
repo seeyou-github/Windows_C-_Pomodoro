@@ -56,7 +56,7 @@ bool MotivationalOverlay::Create(HWND owner) {
         L"",
         WS_POPUP,
         CW_USEDEFAULT, CW_USEDEFAULT, 460, 64,
-        owner,
+        nullptr,
         nullptr,
         GetModuleHandleW(nullptr),
         this);
@@ -386,15 +386,22 @@ bool FullscreenAlert::Show(HWND owner, const std::wstring& message, std::functio
     CreateFontsIfNeeded();
 
     if (hwnd_ == nullptr) {
+        HMONITOR monitor = MonitorFromWindow(owner, MONITOR_DEFAULTTOPRIMARY);
+        MONITORINFO monitor_info{};
+        monitor_info.cbSize = sizeof(monitor_info);
+        GetMonitorInfoW(monitor, &monitor_info);
+        const RECT& monitor_rect = monitor_info.rcMonitor;
+
         hwnd_ = CreateWindowExW(
             WS_EX_TOPMOST,
             kAlertClassName,
             L"",
             WS_POPUP,
-            0, 0,
-            GetSystemMetrics(SM_CXSCREEN),
-            GetSystemMetrics(SM_CYSCREEN),
-            owner,
+            monitor_rect.left,
+            monitor_rect.top,
+            monitor_rect.right - monitor_rect.left,
+            monitor_rect.bottom - monitor_rect.top,
+            nullptr,
             nullptr,
             GetModuleHandleW(nullptr),
             this);
@@ -415,6 +422,20 @@ bool FullscreenAlert::Show(HWND owner, const std::wstring& message, std::functio
     }
 
     SetWindowTextW(label_hwnd_, message.c_str());
+    HMONITOR monitor = MonitorFromWindow(owner, MONITOR_DEFAULTTOPRIMARY);
+    MONITORINFO monitor_info{};
+    monitor_info.cbSize = sizeof(monitor_info);
+    if (GetMonitorInfoW(monitor, &monitor_info) != FALSE) {
+        const RECT& monitor_rect = monitor_info.rcMonitor;
+        SetWindowPos(
+            hwnd_,
+            HWND_TOPMOST,
+            monitor_rect.left,
+            monitor_rect.top,
+            monitor_rect.right - monitor_rect.left,
+            monitor_rect.bottom - monitor_rect.top,
+            SWP_SHOWWINDOW);
+    }
     ResizeChildren();
     ShowWindow(hwnd_, SW_SHOW);
     SetForegroundWindow(hwnd_);
@@ -494,6 +515,19 @@ LRESULT FullscreenAlert::HandleMessage(UINT message, WPARAM w_param, LPARAM l_pa
             return TRUE;
         }
         break;
+    }
+    case WM_ERASEBKGND:
+        return TRUE;
+    case WM_PAINT: {
+        PAINTSTRUCT paint{};
+        HDC dc = BeginPaint(hwnd_, &paint);
+        RECT client{};
+        GetClientRect(hwnd_, &client);
+        HBRUSH brush = CreateSolidBrush(RGB(150, 44, 56));
+        FillRect(dc, &client, brush);
+        DeleteObject(brush);
+        EndPaint(hwnd_, &paint);
+        return 0;
     }
     case WM_CTLCOLORSTATIC: {
         auto static_dc = reinterpret_cast<HDC>(w_param);
