@@ -88,6 +88,10 @@ int GetDisplayedCycleNumber(const PomodoroEngine& engine) {
 MainWindow::MainWindow(HINSTANCE instance) : instance_(instance) {
 }
 
+MainWindow::~MainWindow() {
+    DestroyFonts();
+}
+
 bool MainWindow::Create(int show_command) {
     RegisterWindowClass();
     CreateFonts();
@@ -101,6 +105,7 @@ bool MainWindow::Create(int show_command) {
         nullptr, nullptr, instance_, this);
 
     if (hwnd_ == nullptr) {
+        DestroyFonts();
         return false;
     }
 
@@ -111,6 +116,12 @@ bool MainWindow::Create(int show_command) {
     }
     if (small_icon != nullptr) {
         SendMessageW(hwnd_, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small_icon));
+    }
+    if (large_icon != nullptr) {
+        DestroyIcon(large_icon);
+    }
+    if (small_icon != nullptr) {
+        DestroyIcon(small_icon);
     }
 
     CreateControls();
@@ -198,12 +209,7 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM w_param, LPARAM l_param) 
         StopTimer();
         RemoveTrayIcon();
         overlay_.Hide();
-        if (title_font_ != nullptr) DeleteObject(title_font_);
-        if (timer_font_ != nullptr) DeleteObject(timer_font_);
-        if (status_font_ != nullptr) DeleteObject(status_font_);
-        if (body_font_ != nullptr) DeleteObject(body_font_);
-        if (settings_font_ != nullptr) DeleteObject(settings_font_);
-        if (button_font_ != nullptr) DeleteObject(button_font_);
+        DestroyFonts();
         PostQuitMessage(0);
         return 0;
     case WM_CLOSE:
@@ -240,10 +246,12 @@ void MainWindow::RegisterWindowClass() const {
     window_class.lpfnWndProc = WindowProc;
     window_class.hInstance = instance_;
     window_class.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    window_class.hbrBackground = CreateSolidBrush(kWindowColor);
+    window_class.hbrBackground = nullptr;
     window_class.lpszClassName = kMainWindowClassName;
-    window_class.hIcon = LoadAppIconResource(instance_, GetSystemMetrics(SM_CXICON));
-    window_class.hIconSm = LoadAppIconResource(instance_, GetSystemMetrics(SM_CXSMICON));
+    window_class.hIcon = static_cast<HICON>(LoadImageW(
+        instance_, MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED));
+    window_class.hIconSm = static_cast<HICON>(LoadImageW(
+        instance_, MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON, 16, 16, LR_SHARED));
     RegisterClassExW(&window_class);
 }
 
@@ -254,6 +262,33 @@ void MainWindow::CreateFonts() {
     body_font_ = CreateUiFont(24, FW_NORMAL);
     settings_font_ = CreateUiFont(18, FW_NORMAL);
     button_font_ = CreateUiFont(20, FW_SEMIBOLD);
+}
+
+void MainWindow::DestroyFonts() {
+    if (title_font_ != nullptr) {
+        DeleteObject(title_font_);
+        title_font_ = nullptr;
+    }
+    if (timer_font_ != nullptr) {
+        DeleteObject(timer_font_);
+        timer_font_ = nullptr;
+    }
+    if (status_font_ != nullptr) {
+        DeleteObject(status_font_);
+        status_font_ = nullptr;
+    }
+    if (body_font_ != nullptr) {
+        DeleteObject(body_font_);
+        body_font_ = nullptr;
+    }
+    if (settings_font_ != nullptr) {
+        DeleteObject(settings_font_);
+        settings_font_ = nullptr;
+    }
+    if (button_font_ != nullptr) {
+        DeleteObject(button_font_);
+        button_font_ = nullptr;
+    }
 }
 
 void MainWindow::CreateControls() {
@@ -370,7 +405,6 @@ void MainWindow::UpdateUi() {
 
     UpdateRunningStateButtons();
     UpdateMotivationalOverlay();
-    InvalidateRect(hwnd_, nullptr, FALSE);
 }
 
 void MainWindow::UpdateRunningStateButtons() const {
@@ -519,10 +553,14 @@ void MainWindow::EnsureTrayIcon() {
     notify_data.uID = kTrayIconId;
     notify_data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     notify_data.uCallbackMessage = kTrayIconMessage;
-    notify_data.hIcon = LoadAppIconResource(instance_, GetSystemMetrics(SM_CXSMICON));
+    HICON tray_icon = LoadAppIconResource(instance_, GetSystemMetrics(SM_CXSMICON));
+    notify_data.hIcon = tray_icon;
     lstrcpynW(notify_data.szTip, LoadResString(IDS_APP_TITLE).c_str(), ARRAYSIZE(notify_data.szTip));
 
     tray_icon_visible_ = Shell_NotifyIconW(NIM_ADD, &notify_data) == TRUE;
+    if (tray_icon != nullptr) {
+        DestroyIcon(tray_icon);
+    }
 }
 
 void MainWindow::RemoveTrayIcon() {

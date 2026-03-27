@@ -13,6 +13,7 @@ namespace Pomodoro {
 class MainWindow {
 public:
     explicit MainWindow(HINSTANCE instance);
+    ~MainWindow();
     bool Create(int show_command);
 
 private:
@@ -21,6 +22,7 @@ private:
 
     void RegisterWindowClass() const;
     void CreateFonts();
+    void DestroyFonts();
     void CreateControls();
     void LayoutControls(int client_width, int client_height) const;
     void CenterWindow() const;

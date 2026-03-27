@@ -48,7 +48,7 @@ bool MotivationalOverlay::Create(HWND owner) {
     }
 
     owner_ = owner;
-    RegisterWindowClass(kOverlayClassName, WindowProc, CreateSolidBrush(RGB(28, 28, 30)));
+    RegisterWindowClass(kOverlayClassName, WindowProc, nullptr);
 
     hwnd_ = CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_LAYERED,
@@ -234,10 +234,34 @@ void MotivationalOverlay::RedrawLayeredWindow() const {
     bitmap_info.bmiHeader.biCompression = BI_RGB;
 
     HDC screen_dc = GetDC(nullptr);
+    if (screen_dc == nullptr) {
+        return;
+    }
+
     HDC memory_dc = CreateCompatibleDC(screen_dc);
+    if (memory_dc == nullptr) {
+        ReleaseDC(nullptr, screen_dc);
+        return;
+    }
+
     void* pixel_data = nullptr;
     HBITMAP dib = CreateDIBSection(screen_dc, &bitmap_info, DIB_RGB_COLORS, &pixel_data, nullptr, 0);
+    if (dib == nullptr || pixel_data == nullptr) {
+        if (dib != nullptr) {
+            DeleteObject(dib);
+        }
+        DeleteDC(memory_dc);
+        ReleaseDC(nullptr, screen_dc);
+        return;
+    }
+
     HGDIOBJ old_bitmap = SelectObject(memory_dc, dib);
+    if (old_bitmap == nullptr || old_bitmap == HGDI_ERROR) {
+        DeleteObject(dib);
+        DeleteDC(memory_dc);
+        ReleaseDC(nullptr, screen_dc);
+        return;
+    }
 
     GdiFlush();
     std::fill_n(static_cast<unsigned int*>(pixel_data), static_cast<size_t>(width) * static_cast<size_t>(height), 0u);
@@ -305,7 +329,14 @@ void MotivationalOverlay::RedrawLayeredWindow() const {
 
     SetBkMode(memory_dc, TRANSPARENT);
     SetTextColor(memory_dc, text_color);
-    SelectObject(memory_dc, font_);
+    HGDIOBJ old_font = SelectObject(memory_dc, font_);
+    if (old_font == nullptr || old_font == HGDI_ERROR) {
+        SelectObject(memory_dc, old_bitmap);
+        DeleteObject(dib);
+        DeleteDC(memory_dc);
+        ReleaseDC(nullptr, screen_dc);
+        return;
+    }
 
     RECT text_rect{14, 6, width - 14, height - 6};
     DrawTextW(memory_dc, current_text_.c_str(), -1, &text_rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
@@ -335,6 +366,7 @@ void MotivationalOverlay::RedrawLayeredWindow() const {
     BLENDFUNCTION blend{AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
     UpdateLayeredWindow(hwnd_, screen_dc, &window_position, &size, memory_dc, &source_point, 0, &blend, ULW_ALPHA);
 
+    SelectObject(memory_dc, old_font);
     SelectObject(memory_dc, old_bitmap);
     DeleteObject(dib);
     DeleteDC(memory_dc);
@@ -350,7 +382,7 @@ bool FullscreenAlert::Show(HWND owner, const std::wstring& message, std::functio
 
     // A full-screen popup is used instead of a regular message box so the
     // break/work transition is hard to miss, which mirrors the Python app.
-    RegisterWindowClass(kAlertClassName, WindowProc, CreateSolidBrush(RGB(150, 44, 56)));
+    RegisterWindowClass(kAlertClassName, WindowProc, nullptr);
     CreateFontsIfNeeded();
 
     if (hwnd_ == nullptr) {
