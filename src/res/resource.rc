@@ -27,6 +27,8 @@ BEGIN
     IDS_CONTINUE_BUTTON "继续"
     IDS_TRAY_SHOW "显示主界面"
     IDS_TRAY_EXIT "退出"
+    IDS_SINGLE_INSTANCE_CREATE_FAILED "无法创建单实例互斥锁。"
+    IDS_ALREADY_RUNNING "应用已在运行中。"
 
     IDS_MOTIVATION_01 "今天多学一点，明天就少慌一点。"
     IDS_MOTIVATION_02 "真正拉开差距的，往往是那些没人看见的努力。"
